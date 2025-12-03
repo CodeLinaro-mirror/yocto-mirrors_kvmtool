@@ -87,6 +87,8 @@
 
 #define MAX_PAGE_SIZE	SZ_64K
 
+/* Size of DMA region for bouncing when running a protected guest */
+#define DMA_MEM_REGION_SIZE	SZ_32M
 
 static inline bool arm_addr_in_ioport_region(u64 phys_addr)
 {

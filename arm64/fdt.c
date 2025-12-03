@@ -71,6 +71,19 @@ static void generate_irq_prop(void *fdt, u8 irq, enum irq_type irq_type)
 	_FDT(fdt_property(fdt, "interrupts", irq_prop, sizeof(irq_prop)));
 }
 
+static bool emit_dma_regions;
+void generate_dma_region_prop(void *fdt)
+{
+	if (emit_dma_regions)
+		_FDT(fdt_property_cell(fdt, "memory-region", PHANDLE_DMA));
+}
+
+static void generate_aux_props(void *fdt, u8 irq, enum irq_type irq_type)
+{
+	generate_irq_prop(fdt, irq, irq_type);
+	generate_dma_region_prop(fdt);
+}
+
 struct psci_fns {
 	u32 cpu_suspend;
 	u32 cpu_off;
@@ -103,7 +116,7 @@ static int setup_fdt(struct kvm *kvm)
 {
 	struct device_header *dev_hdr;
 	u8 staging_fdt[FDT_MAX_SIZE];
-	u64 mem_reg_prop[]	= {
+	u64 resv_mem_prop, mem_reg_prop[] = {
 		cpu_to_fdt64(kvm->arch.memory_guest_start),
 		cpu_to_fdt64(kvm->ram_size),
 	};
@@ -115,6 +128,9 @@ static int setup_fdt(struct kvm *kvm)
 					void (*)(void *, u8, enum irq_type));
 	void (*generate_cpu_peripheral_fdt_nodes)(void *, struct kvm *)
 					= kvm->cpus[0]->generate_fdt_nodes;
+
+	/* Generate DMA regions for bouncing in protected VMs */
+	emit_dma_regions = kvm->cfg.arch.protected;
 
 	/* Create new tree without a reserve map */
 	_FDT(fdt_create(fdt, FDT_MAX_SIZE));
@@ -162,6 +178,23 @@ static int setup_fdt(struct kvm *kvm)
 	_FDT(fdt_property(fdt, "reg", mem_reg_prop, sizeof(mem_reg_prop)));
 	_FDT(fdt_end_node(fdt));
 
+	/* Reserved memory (restricted DMA pool) */
+	if (emit_dma_regions) {
+		_FDT(fdt_begin_node(fdt, "reserved-memory"));
+		_FDT(fdt_property_cell(fdt, "#address-cells", 0x2));
+		_FDT(fdt_property_cell(fdt, "#size-cells", 0x2));
+		_FDT(fdt_property(fdt, "ranges", NULL, 0));
+
+		_FDT(fdt_begin_node(fdt, "restricted_dma_reserved"));
+		_FDT(fdt_property_string(fdt, "compatible", "restricted-dma-pool"));
+		resv_mem_prop = cpu_to_fdt64(DMA_MEM_REGION_SIZE);
+		_FDT(fdt_property(fdt, "size", &resv_mem_prop, sizeof(resv_mem_prop)));
+		_FDT(fdt_property_cell(fdt, "phandle", PHANDLE_DMA));
+		_FDT(fdt_end_node(fdt));
+
+		_FDT(fdt_end_node(fdt));
+	}
+
 	/* CPU and peripherals (interrupt controller, timers, etc) */
 	generate_cpu_nodes(fdt, kvm);
 	if (generate_cpu_peripheral_fdt_nodes)
@@ -172,7 +205,7 @@ static int setup_fdt(struct kvm *kvm)
 	while (dev_hdr) {
 		generate_mmio_fdt_nodes = dev_hdr->data;
 		if (generate_mmio_fdt_nodes) {
-			generate_mmio_fdt_nodes(fdt, dev_hdr, generate_irq_prop);
+			generate_mmio_fdt_nodes(fdt, dev_hdr, generate_aux_props);
 		} else {
 			pr_debug("Missing FDT node generator for MMIO device %d",
 				 dev_hdr->dev_num);

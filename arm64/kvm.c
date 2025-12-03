@@ -6,6 +6,7 @@
 #include "kvm/fdt.h"
 #include "kvm/gic.h"
 #include "kvm/kvm-cpu.h"
+#include "kvm/virtio.h"
 
 #include "asm/smccc.h"
 
@@ -147,6 +148,9 @@ void kvm__arch_init(struct kvm *kvm)
 	kvm__arch_enable_mte(kvm);
 	kvm__setup_smccc(kvm);
 	kvm__arch_set_counter_offset(kvm);
+
+	if (kvm->cfg.arch.protected)
+		virtio_modern_enable_feat_access_platform();
 }
 
 
@@ -463,6 +467,22 @@ void kvm__arch_validate_cfg(struct kvm *kvm)
 
 	if (kvm->cfg.arch.e2h0 && !kvm->cfg.arch.nested_virt)
 		pr_warning("--e2h0 requires --nested, ignoring");
+
+	if (kvm->cfg.arch.protected) {
+		if (kvm->cfg.ram_size &&
+		    kvm->cfg.ram_size < DMA_MEM_REGION_SIZE) {
+			die("RAM size (0x%llx) smaller than DMA bounce region (0x%x)",
+			    kvm->cfg.ram_size, DMA_MEM_REGION_SIZE);
+		}
+
+		if (kvm->cfg.virtio_transport == VIRTIO_MMIO_LEGACY ||
+		    kvm->cfg.virtio_transport == VIRTIO_PCI_LEGACY) {
+			die("Protected VMs require a modern virtio transport");
+		}
+
+		if (kvm->cfg.balloon)
+			die("Ballooning not supported with protected VMs");
+	}
 }
 
 u64 kvm__arch_default_ram_address(void)
@@ -485,11 +505,15 @@ int kvm__get_vm_type(struct kvm *kvm)
 {
 	unsigned int ipa_bits, max_ipa_bits;
 	unsigned long max_ipa;
+	int type = 0;
+
+	if (kvm->cfg.arch.protected)
+		type |= KVM_VM_TYPE_ARM_PROTECTED;
 
 	/* If we're running on an old kernel, use 0 as the VM type */
 	max_ipa_bits = kvm__arch_get_ipa_limit(kvm);
 	if (!max_ipa_bits)
-		return 0;
+		return type;
 
 	/* Otherwise, compute the minimal required IPA size */
 	max_ipa = kvm->cfg.ram_addr + kvm->cfg.ram_size - 1;
@@ -500,7 +524,7 @@ int kvm__get_vm_type(struct kvm *kvm)
 	if (ipa_bits > max_ipa_bits)
 		die("Memory too large for this system (needs %d bits, %d available)", ipa_bits, max_ipa_bits);
 
-	return KVM_VM_TYPE_ARM_IPA_SIZE(ipa_bits);
+	return type | KVM_VM_TYPE_ARM_IPA_SIZE(ipa_bits);
 }
 
 static int kvm__arch_free_kernel_header(struct kvm *kvm)
