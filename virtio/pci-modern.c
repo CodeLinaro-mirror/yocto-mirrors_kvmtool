@@ -148,7 +148,7 @@ static bool virtio_pci__common_read(struct virtio_device *vdev,
 {
 	u32 val;
 	struct virtio_pci *vpci = vdev->virtio;
-	u64 features = 1ULL << VIRTIO_F_VERSION_1;
+	u64 features = virtio_get_modern_transport_features();
 
 	switch (offset - VPCI_CFG_COMMON_START) {
 	case VIRTIO_PCI_COMMON_DFSELECT:
