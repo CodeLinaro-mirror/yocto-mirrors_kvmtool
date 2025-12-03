@@ -277,6 +277,7 @@ void virtio_vhost_reset_vring(struct kvm *kvm, int vhost_fd, u32 index,
 int virtio_vhost_set_features(int vhost_fd, u64 features);
 
 int virtio_transport_parser(const struct option *opt, const char *arg, int unset);
+void virtio_modern_enable_feat_access_platform(void);
 u64 virtio_get_modern_transport_features(void);
 
 #endif /* KVM__VIRTIO_H */
