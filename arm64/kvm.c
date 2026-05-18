@@ -460,6 +460,9 @@ void kvm__arch_validate_cfg(struct kvm *kvm)
 	    kvm->cfg.ram_addr + kvm->cfg.ram_size > SZ_4G) {
 		die("RAM extends above 4GB");
 	}
+
+	if (kvm->cfg.arch.e2h0 && !kvm->cfg.arch.nested_virt)
+		pr_warning("--e2h0 requires --nested, ignoring");
 }
 
 u64 kvm__arch_default_ram_address(void)
