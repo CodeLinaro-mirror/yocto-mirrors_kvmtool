@@ -10,6 +10,7 @@ struct kvm_config_arch {
 	bool		aarch32_guest;
 	bool		has_pmuv3;
 	bool		mte_disabled;
+	bool		nested_virt;
 	u64		kaslr_seed;
 	enum irqchip_type irqchip;
 	u64		fw_addr;
@@ -61,6 +62,8 @@ int sve_vl_parser(const struct option *opt, const char *arg, int unset);
 		"Address where firmware should be loaded"),			\
 	OPT_BOOLEAN('\0', "psci", &(cfg)->psci,					\
 			"Request userspace handling of PSCI, instead of"	\
-			" relying on the in-kernel implementation"),
+			" relying on the in-kernel implementation"),		\
+	OPT_BOOLEAN('\0', "nested", &(cfg)->nested_virt,			\
+		    "Start VCPUs in EL2 (for nested virt)"),
 
 #endif /* ARM_COMMON__KVM_CONFIG_ARCH_H */
