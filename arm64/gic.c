@@ -9,6 +9,8 @@
 #include <linux/kvm.h>
 #include <linux/sizes.h>
 
+#include <asm/pmu.h>
+
 #define IRQCHIP_GIC 0
 
 #define GIC_MAINT_IRQ	9
@@ -355,7 +357,12 @@ static int gic__init_gic(struct kvm *kvm)
 
 	vgic_is_init = true;
 
-	return irq__setup_irqfd_lines(kvm);
+	ret = irq__setup_irqfd_lines(kvm);
+	if (ret)
+		return ret;
+
+	/* The PMU requires that the GIC has been initialized. */
+	return pmu__init(kvm);
 }
 late_init(gic__init_gic)
 

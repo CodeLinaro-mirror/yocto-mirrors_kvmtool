@@ -193,20 +193,31 @@ static int find_pmu(struct kvm *kvm)
 void pmu__generate_fdt_nodes(void *fdt, struct kvm *kvm)
 {
 	const char compatible[] = "arm,armv8-pmuv3";
-	int irq = KVM_ARM_PMUv3_PPI;
-	struct kvm_cpu *vcpu;
-	int pmu_id = -ENXIO;
-	int i;
-
 	u32 cpu_mask = gic__get_fdt_irq_cpumask(kvm);
 	u32 irq_prop[] = {
 		cpu_to_fdt32(GIC_FDT_IRQ_TYPE_PPI),
-		cpu_to_fdt32(irq - 16),
+		cpu_to_fdt32(KVM_ARM_PMUv3_PPI - 16),
 		cpu_to_fdt32(cpu_mask | IRQ_TYPE_LEVEL_HIGH),
 	};
 
 	if (!kvm->cfg.arch.has_pmuv3)
 		return;
+
+	_FDT(fdt_begin_node(fdt, "pmu"));
+	_FDT(fdt_property(fdt, "compatible", compatible, sizeof(compatible)));
+	_FDT(fdt_property(fdt, "interrupts", irq_prop, sizeof(irq_prop)));
+	_FDT(fdt_end_node(fdt));
+}
+
+int pmu__init(struct kvm *kvm)
+{
+	int irq = KVM_ARM_PMUv3_PPI;
+	struct kvm_cpu *vcpu;
+	int pmu_id = -ENXIO;
+	int i;
+
+	if (!kvm->cfg.arch.has_pmuv3)
+		return 0;
 
 	if (pmu_has_attr(kvm->cpus[0], KVM_ARM_VCPU_PMU_V3_SET_PMU)) {
 		pmu_id = find_pmu(kvm);
@@ -228,8 +239,5 @@ void pmu__generate_fdt_nodes(void *fdt, struct kvm *kvm)
 		set_pmu_attr(vcpu, NULL, KVM_ARM_VCPU_PMU_V3_INIT);
 	}
 
-	_FDT(fdt_begin_node(fdt, "pmu"));
-	_FDT(fdt_property(fdt, "compatible", compatible, sizeof(compatible)));
-	_FDT(fdt_property(fdt, "interrupts", irq_prop, sizeof(irq_prop)));
-	_FDT(fdt_end_node(fdt));
+	return 0;
 }
