@@ -1,6 +1,7 @@
 /*
  * Taken from perf which in turn take it from GIT
  */
+#include <stdio.h>
 
 #include "kvm/util.h"
 
@@ -98,11 +99,23 @@ void __pr_debug(const char *debug, ...)
 	va_end(params);
 }
 
-void die_perror(const char *s)
+void die_perror(const char *fmt, ...)
 {
+	char buf[1024];
+	va_list params;
 	int e = errno;
+	int ret;
 
-	perror(s);
+	va_start(params, fmt);
+	ret = vsnprintf(buf, sizeof(buf), fmt, params);
+	if (ret < 0) {
+		perror("vsnprintf");
+		buf[0] = '\0';
+	}
+	va_end(params);
+
+	errno = e;
+	perror(buf);
 	exit(e);
 }
 
