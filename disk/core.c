@@ -13,35 +13,42 @@ static int disk_image__close(struct disk_image *disk);
 
 int disk_img_name_parser(const struct option *opt, const char *arg, int unset)
 {
-	const char *cur;
-	char *sep;
+	struct disk_image_params *params;
 	struct kvm *kvm = opt->ptr;
+	char *cur, *sep;
 
 	if (kvm->nr_disks >= MAX_DISK_IMAGES)
 		die("Currently only 4 images are supported");
 
-	kvm->cfg.disk_image[kvm->nr_disks].filename = arg;
-	cur = arg;
+	params = &kvm->cfg.disk_image[kvm->nr_disks];
 
 	if (strncmp(arg, "scsi:", 5) == 0) {
-		sep = strstr(arg, ":");
-		kvm->cfg.disk_image[kvm->nr_disks].wwpn = sep + 1;
+		params->wwpn = strdup(strstr(arg, ":") + 1);
+		if (!params->wwpn)
+			die_perror("strdup");
 
 		/* Old invocation had two parameters. Ignore the second one. */
-		sep = strstr(sep + 1, ":");
+		sep = strstr(params->wwpn, ":");
 		if (sep) {
 			*sep = 0;
 			cur = sep + 1;
+		} else {
+			cur = params->wwpn;
 		}
+	} else {
+		params->filename = strdup(arg);
+		if (!params->filename)
+			die_perror("strdup");
+		cur = params->filename;
 	}
 
 	do {
 		sep = strstr(cur, ",");
 		if (sep) {
 			if (strncmp(sep + 1, "ro", 2) == 0)
-				kvm->cfg.disk_image[kvm->nr_disks].readonly = true;
+				params->readonly = true;
 			else if (strncmp(sep + 1, "direct", 6) == 0)
-				kvm->cfg.disk_image[kvm->nr_disks].direct = true;
+				params->direct = true;
 			*sep = 0;
 			cur = sep + 1;
 		}
@@ -145,8 +152,7 @@ static struct disk_image *disk_image__open(const char *filename, bool readonly, 
 static struct disk_image **disk_image__open_all(struct kvm *kvm)
 {
 	struct disk_image **disks;
-	const char *filename;
-	const char *wwpn;
+	char *filename, *wwpn;
 	bool readonly;
 	bool direct;
 	void *err;
@@ -189,18 +195,27 @@ static struct disk_image **disk_image__open_all(struct kvm *kvm)
 			goto error;
 		}
 		disks[i]->debug_iodelay = kvm->cfg.debug_iodelay;
+
+		free(params[i].filename);
+		params[i].filename = NULL;
 	}
 
 	return disks;
 error:
 	for (i = 0; i < count; i++) {
-		if (IS_ERR_OR_NULL(disks[i]))
-			continue;
+		free(params[i].filename);
 
-		if (disks[i]->wwpn)
+		if (IS_ERR_OR_NULL(disks[i])) {
+			free(params[i].wwpn);
+			continue;
+		}
+
+		if (disks[i]->wwpn) {
+			free(disks[i]->wwpn);
 			free(disks[i]);
-		else
+		} else {
 			disk_image__close(disks[i]);
+		}
 	}
 	free(disks);
 	return err;
@@ -236,6 +251,7 @@ static int disk_image__close(struct disk_image *disk)
 	if (disk->fd && close(disk->fd) < 0)
 		pr_warning("close() failed");
 
+	free(disk->wwpn);
 	free(disk);
 
 	return 0;

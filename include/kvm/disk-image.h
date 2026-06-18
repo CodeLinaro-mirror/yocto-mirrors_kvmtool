@@ -47,9 +47,9 @@ struct disk_image_operations {
 };
 
 struct disk_image_params {
-	const char *filename;
+	char *filename;
 	/* wwpn == World Wide Port Number */
-	const char *wwpn;
+	char *wwpn;
 	bool readonly;
 	bool direct;
 };
@@ -69,7 +69,7 @@ struct disk_image {
 	pthread_t			thread;
 	u64				aio_inflight;
 #endif /* CONFIG_HAS_AIO */
-	const char			*wwpn;
+	char				*wwpn;
 	int				debug_iodelay;
 };
 
