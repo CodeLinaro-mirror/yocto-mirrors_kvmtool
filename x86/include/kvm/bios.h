@@ -62,11 +62,15 @@
 #define MB_BIOS_SS			0xfff7
 #define MB_BIOS_SP			0x40
 
+#ifdef CONFIG_X86_32
 /*
  * When interfere with assembler code we need to be sure how
  * arguments are passed in real mode.
  */
 #define bioscall __attribute__((regparm(3)))
+#else
+#define bioscall
+#endif
 
 #ifndef __ASSEMBLER__
 
