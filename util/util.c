@@ -100,8 +100,10 @@ void __pr_debug(const char *debug, ...)
 
 void die_perror(const char *s)
 {
+	int e = errno;
+
 	perror(s);
-	exit(1);
+	exit(e);
 }
 
 void *mmap_hugetlbfs(struct kvm *kvm, const char *htlbfs_path, u64 size)
