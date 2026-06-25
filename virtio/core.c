@@ -355,6 +355,11 @@ bool virtio_access_config(struct kvm *kvm, struct virtio_device *vdev,
 
 static u64 virtio_modern_transport_features = 1ULL << VIRTIO_F_VERSION_1;
 
+void virtio_modern_enable_feat_access_platform(void)
+{
+	virtio_modern_transport_features |= 1ULL << VIRTIO_F_ACCESS_PLATFORM;
+}
+
 u64 virtio_get_modern_transport_features(void)
 {
 	return virtio_modern_transport_features;
