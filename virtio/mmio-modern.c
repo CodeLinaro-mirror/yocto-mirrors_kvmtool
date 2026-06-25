@@ -11,7 +11,7 @@ static void virtio_mmio_config_in(struct kvm_cpu *vcpu,
 				  struct virtio_device *vdev)
 {
 	struct virtio_mmio *vmmio = vdev->virtio;
-	u64 features = 1ULL << VIRTIO_F_VERSION_1;
+	u64 features = virtio_get_modern_transport_features();
 	u32 val = 0;
 
 	switch (addr) {
